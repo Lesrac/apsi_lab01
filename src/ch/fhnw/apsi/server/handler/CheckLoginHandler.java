@@ -2,12 +2,12 @@ package ch.fhnw.apsi.server.handler;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.net.HttpCookie;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Base64;
 import java.util.Map;
 
+import ch.fhnw.apsi.server.PermanentCookie;
 import ch.fhnw.apsi.server.Server;
 
 import com.sun.net.httpserver.Headers;
@@ -45,19 +45,14 @@ public class CheckLoginHandler implements HttpHandler {
 			byte[] encoded = Base64.getEncoder().encode(
 					(username + password).getBytes()); // userAgent +
 			String encodedStr = new String(encoded);
-			try {
-				String cookieName = "SESSION_COOKIE";
-				Server.addCookie(username, "/loggedIn", cookieName, encodedStr, 1800);
-				HttpCookie cookie = Server.getCookie(id, cookieName);
-				h.add(
-						"Set-Cookie",
-						cookieName + "=\"" + cookie.getValue() + "\"; Version="
-								+ cookie.getVersion() + "; Max-Age=" + cookie.getMaxAge());
-					//			+ "; Path=" + cookie.getPath());
-			} catch (URISyntaxException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
+			String cookieName = "SESSION_COOKIE";
+			Server.addCookie(username, cookieName, encodedStr, 1800);
+			PermanentCookie cookie = Server.getCookie(id, cookieName);
+			h.add(
+					"Set-Cookie",
+					cookieName + "=\"" + cookie.getValue() + "\"; Version="
+							+ cookie.getVersion() + "; Max-Age=" + cookie.getMaxAge() + "; HttpOnly");
+			// + "; Path=" + cookie.getPath());
 		} else {
 			h.add("Location", "/index");
 		}

@@ -2,9 +2,9 @@ package ch.fhnw.apsi.server.handler;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.net.HttpCookie;
 import java.net.URI;
 
+import ch.fhnw.apsi.server.PermanentCookie;
 import ch.fhnw.apsi.server.Server;
 
 import com.sun.net.httpserver.Headers;
@@ -32,9 +32,8 @@ public class LoggedInHandler implements HttpHandler {
 		t.sendResponseHeaders(200, 0);
 		OutputStream os = t.getResponseBody();
 		StringBuffer sb = new StringBuffer();
-		for (HttpCookie c : Server.getCookies()) {
+		for (PermanentCookie c : Server.getCookies()) {
 			sb.append("CookieStore: Name=" + c.getName() + ", Value=" + c.getValue()
-					+ ", Comment=" + c.getComment() + ", Domain=" + c.getDomain()
 					+ ", MaxAge=" + c.getMaxAge() + ", Path=" + c.getPath()
 					+ ", Version=" + c.getVersion());
 			sb.append("<br>");

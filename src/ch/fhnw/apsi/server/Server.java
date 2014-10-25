@@ -2,12 +2,8 @@ package ch.fhnw.apsi.server;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.net.CookieHandler;
-import java.net.CookieManager;
-import java.net.CookieStore;
-import java.net.HttpCookie;
 import java.net.InetSocketAddress;
-import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,13 +21,10 @@ public class Server {
 	public static final String INDEXPAGE = "web/index.html";
 	public static final String LOGGEDINPAGE = "web/loggedIn.html";
 
-	private static CookieManager cookieManager;
 	private static Map<String, String> userpw_map = new HashMap<>();
-	private static List<PermanentCookie> permanentCookies;
+	private static List<PermanentCookie> permanentCookies = new ArrayList<>();
 
 	public static void main(String[] args) throws IOException {
-		cookieManager = new CookieManager();
-		CookieHandler.setDefault(cookieManager);
 		initUserPwMap();
 		HttpServer server = HttpServer.create(new InetSocketAddress(8080), 0);
 		server.createContext("/test", new MyHandler());
@@ -50,9 +43,8 @@ public class Server {
 		userpw_map.put("andrea@bluewin.ch", "qwer");
 	}
 
-	public static List<HttpCookie> getCookies() {
-		CookieStore cs = cookieManager.getCookieStore();
-		return cs.getCookies();
+	public static List<PermanentCookie> getCookies() {
+		return permanentCookies;
 	}
 
 	public static boolean checkCookie(Headers headers) {
@@ -70,45 +62,38 @@ public class Server {
 	}
 
 	public static boolean checkCookie(String name, String value) {
-		List<HttpCookie> cookies = cookieManager.getCookieStore().getCookies();
-		int i =  1;
-		if (cookies != null) {
-			for (HttpCookie cookie : cookies) {
-				System.out.println("Existing Cookie: " + cookie.getName() + ", "
-						+ cookie.getValue() + " " +i++);
-				if (cookie.getName().equals(name) && cookie.getValue().equals(value)
-						&& !cookie.hasExpired()) {
-					return true;
-				}
+		int i = 1;
+		for (PermanentCookie cookie : permanentCookies) {
+			System.out.println("Existing Cookie: " + cookie.getName() + ", "
+					+ cookie.getValue() + " " + i++);
+			if (cookie.getName().equals(name) && cookie.getValue().equals(value)
+					&& !cookie.hasExpired()) {
+				return true;
 			}
 		}
 		return false;
 	}
 
-	public static HttpCookie getCookie(int id, String name) {
-		List<HttpCookie> cookies = cookieManager.getCookieStore().getCookies();
-		if (cookies != null) {
-			for (HttpCookie cookie : cookies) {
-				System.out.println("GetCookie: " + cookie.getName());
-				if (name.equals(cookie.getName())) {
-					return cookie;
-				}
+	public static PermanentCookie getCookie(int id, String name) {
+		for (PermanentCookie cookie : permanentCookies) {
+			System.out.println("GetCookie: " + cookie.getName());
+			if (name.equals(cookie.getName())) {
+				return cookie;
 			}
 		}
 		return null;
 	}
 
-	public static void addCookie(String id, String path, String name, String value, int maxAge)
-			throws URISyntaxException {
-		HttpCookie cookie = new HttpCookie(name, value);
-		cookie.setPath(path + "/" + name);
+	public static void addCookie(String id, String name, String value, int maxAge) {
+		PermanentCookie cookie = new PermanentCookie(name, value);
+		cookie.setPath("/");
 		cookie.setMaxAge(maxAge);
-		cookieManager.getCookieStore().add(null, cookie);
+		permanentCookies.add(cookie);
 	}
 
-	public static void removeCookie(String id, String path, String name)
-			throws URISyntaxException {
-		addCookie(id, path, name, null, 0);
+	public static void removeCookie(int id, String name) {
+		PermanentCookie cookie = getCookie(id, name);
+		permanentCookies.remove(cookie);
 	}
 
 	public static void setDefaultHeaders(Headers h) {
