@@ -1,12 +1,20 @@
 package ch.fhnw.apsi.server;
 
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
+import java.security.KeyStore;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLEngine;
+import javax.net.ssl.SSLParameters;
+import javax.net.ssl.TrustManagerFactory;
 
 import ch.fhnw.apsi.server.handler.CheckLoginHandler;
 import ch.fhnw.apsi.server.handler.IndexHandler;
@@ -15,7 +23,9 @@ import ch.fhnw.apsi.server.handler.LoggedInHandler;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
-import com.sun.net.httpserver.HttpServer;
+import com.sun.net.httpserver.HttpsConfigurator;
+import com.sun.net.httpserver.HttpsParameters;
+import com.sun.net.httpserver.HttpsServer;
 
 public class Server {
 	public static final String INDEXPAGE = "web/index.html";
@@ -26,13 +36,49 @@ public class Server {
 
 	public static void main(String[] args) throws IOException {
 		initUserPwMap();
-		HttpServer server = HttpServer.create(new InetSocketAddress(8080), 0);
-		server.createContext("/test", new MyHandler());
-		server.createContext("/index", new IndexHandler());
-		server.createContext("/checkLogin", new CheckLoginHandler());
-		server.createContext("/loggedIn", new LoggedInHandler());
-		server.setExecutor(null); // creates a default executor
-		server.start();
+		try {
+			HttpsServer server = HttpsServer.create(new InetSocketAddress(8080), 0);
+			SSLContext sslContext = SSLContext.getInstance("TLS");
+			char[] password = "simulator".toCharArray();
+			KeyStore ks = KeyStore.getInstance("JKS");
+			FileInputStream fis = new FileInputStream("key/identity.jks");
+			ks.load(fis, password);
+			KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
+			kmf.init(ks, password);
+
+			TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");
+			tmf.init(ks);
+
+			sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
+			server.setHttpsConfigurator(new HttpsConfigurator(sslContext) {
+				public void configure(HttpsParameters params) {
+					System.out.println("Why this shit??");
+					try {
+						// initialise the SSL context
+						SSLContext c = SSLContext.getDefault();
+						SSLEngine engine = c.createSSLEngine();
+						params.setNeedClientAuth(false);
+						params.setCipherSuites(engine.getEnabledCipherSuites());
+						params.setProtocols(engine.getEnabledProtocols());
+
+						// get the default parameters
+						SSLParameters defaultSSLParameters = c.getDefaultSSLParameters();
+						params.setSSLParameters(defaultSSLParameters);
+					} catch (Exception ex) {
+						ex.printStackTrace();
+						System.out.println("Failed to create HTTPS port");
+					}
+				}
+			});
+
+			server.createContext("/test", new MyHandler());
+			server.createContext("/index", new IndexHandler());
+			server.createContext("/checkLogin", new CheckLoginHandler());
+			server.createContext("/loggedIn", new LoggedInHandler());
+			server.setExecutor(null); // creates a default executor
+			server.start();
+		} catch (Exception ex) {
+		}
 	}
 
 	private static void initUserPwMap() {
