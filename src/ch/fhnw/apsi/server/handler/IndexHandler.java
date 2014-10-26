@@ -19,41 +19,48 @@ public class IndexHandler implements HttpHandler {
 
 	@Override
 	public void handle(HttpExchange t) throws IOException {
-		Headers hIn = t.getRequestHeaders();
-		boolean autologin = false;
-		if (hIn.containsKey("Cookie")) {
-			autologin = Server.checkCookie(hIn);
-		}
-		Headers h = t.getResponseHeaders();
-		Server.setDefaultHeaders(h);
-		if (autologin) {
-			System.out.println("AutoLogin");
-			if (cookie != null)
-				h.add("Set-Cookie",
-						cookie.getName() + "=\"" + cookie.getValue() + "\"; Version="
-								+ cookie.getVersion() + "; Max-Age=" + cookie.getMaxAge()
-								+ "; Path=" + cookie.getPath());
-			else
-				System.out.println("Cookie is null");
-			h.add("Location", "/loggedIn");
-			t.sendResponseHeaders(302, 0); // response.getBytes().length
-			OutputStream os = t.getResponseBody();
-			os.close();
-		} else {
-			t.sendResponseHeaders(200, 0); // response.getBytes().length
-			OutputStream os = t.getResponseBody();
-			byte[] buf = new byte[256];
-			int len;
-			File f = new File(Server.INDEXPAGE);
-			try (FileInputStream fis = new FileInputStream(f)) {
-				while ((len = fis.read(buf)) != -1) {
-					os.write(buf, 0, len);
-				}
-			} catch (FileNotFoundException e) {
-				e.printStackTrace();
-			} catch (IOException e) {
-				e.printStackTrace();
+		if ("GET".equals(t.getRequestMethod())) {
+			Headers hIn = t.getRequestHeaders();
+			boolean autologin = false;
+			// TODO
+			if (hIn.containsKey("Cookie")) {
+				autologin = Server.checkCookie("hansmueller@gmx.com", hIn);
 			}
+			Headers h = t.getResponseHeaders();
+			Server.setDefaultHeaders(h);
+			if (autologin) {
+				if (cookie != null)
+					h.add("Set-Cookie",
+							cookie.getName() + "=\"" + cookie.getValue() + "\"; Version="
+									+ cookie.getVersion() + "; Max-Age=" + cookie.getMaxAge()
+									+ "; Path=" + cookie.getPath());
+				else
+					System.out.println("Cookie is null");
+				h.add("Location", "/loggedIn");
+				t.sendResponseHeaders(302, 0);
+				OutputStream os = t.getResponseBody();
+				os.close();
+			} else {
+				t.sendResponseHeaders(200, 0);
+				OutputStream os = t.getResponseBody();
+				byte[] buf = new byte[256];
+				int len;
+				File f = new File(Server.INDEXPAGE);
+				try (FileInputStream fis = new FileInputStream(f)) {
+					while ((len = fis.read(buf)) != -1) {
+						os.write(buf, 0, len);
+					}
+				} catch (FileNotFoundException e) {
+					e.printStackTrace();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+				os.close();
+			}
+		} else {
+			t.getResponseHeaders();
+			t.sendResponseHeaders(404, 0);
+			OutputStream os = t.getResponseBody();
 			os.close();
 		}
 	}

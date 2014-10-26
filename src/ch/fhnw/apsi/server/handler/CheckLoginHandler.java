@@ -3,11 +3,9 @@ package ch.fhnw.apsi.server.handler;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.Base64;
 import java.util.Map;
 
-import ch.fhnw.apsi.server.PermanentCookie;
+import ch.fhnw.apsi.server.CookieUtil;
 import ch.fhnw.apsi.server.Server;
 
 import com.sun.net.httpserver.Headers;
@@ -18,47 +16,41 @@ public class CheckLoginHandler implements HttpHandler {
 
 	@Override
 	public void handle(HttpExchange t) throws IOException {
-		URI uri = t.getRequestURI();
-		System.out.println(uri);
-		String uriS = java.net.URLDecoder.decode(uri.toString(), "UTF-8");
-		String paramS = uriS.substring(uriS.indexOf("?") + 1);
-		String[] parameters = paramS.split("&");
-
-		int id = 0;
-		String username = "";
-		String password = "";
-		for (String s : parameters) {
-			if (s.startsWith("id")) {
-				id = Integer.valueOf(s.substring(3));
-			} else if (s.startsWith("user")) {
-				username = s.substring(5);
-			} else if (s.startsWith("password")) {
-				password = s.substring(9);
+		if ("GET".equals(t.getRequestMethod())) {
+			URI uri = t.getRequestURI();
+			String uriS = java.net.URLDecoder.decode(uri.toString(), "UTF-8");
+			String paramS = uriS.substring(uriS.indexOf("?") + 1);
+			String[] parameters = paramS.split("&");
+			Headers hReq = t.getRequestHeaders();
+			String userAgent = hReq.getFirst("User-Agent");
+			String username = "";
+			String password = "";
+			for (String s : parameters) {
+				if (s.startsWith("user")) {
+					username = s.substring(5);
+				} else if (s.startsWith("password")) {
+					password = s.substring(9);
+				}
 			}
-		}
-		System.out.println("Id: " + id);
-		System.out.println("username: " + username);
-		System.out.println("password: " + password);
-		Headers h = t.getResponseHeaders();
-		if (checkUser(username, password)) {
-			h.add("Location", "/loggedIn");
-			byte[] encoded = Base64.getEncoder().encode(
-					(username + password).getBytes()); // userAgent +
-			String encodedStr = new String(encoded);
-			String cookieName = "SESSION_COOKIE";
-			Server.addCookie(username, cookieName, encodedStr, 1800);
-			PermanentCookie cookie = Server.getCookie(id, cookieName);
-			h.add(
-					"Set-Cookie",
-					cookieName + "=\"" + cookie.getValue() + "\"; Version="
-							+ cookie.getVersion() + "; Max-Age=" + cookie.getMaxAge() + "; HttpOnly");
-			// + "; Path=" + cookie.getPath());
+			Headers h = t.getResponseHeaders();
+			if (checkUser(username, password)
+					&& !Server.checkCookieExistForUser(username, password, userAgent)) {
+				h.add("Location", "/loggedIn");
+				String cookieName = "SESSION_COOKIE";
+				h.add("Set-Cookie", CookieUtil.createCookieHeader(cookieName, username,
+						password, userAgent, true));
+			} else {
+				h.add("Location", "/index");
+			}
+			t.sendResponseHeaders(302, 0); // response.getBytes().length
+			OutputStream os = t.getResponseBody();
+			os.close();
 		} else {
-			h.add("Location", "/index");
+			t.getResponseHeaders();
+			t.sendResponseHeaders(404, 0);
+			OutputStream os = t.getResponseBody();
+			os.close();
 		}
-		t.sendResponseHeaders(302, 0); // response.getBytes().length
-		OutputStream os = t.getResponseBody();
-		os.close();
 	}
 
 	private boolean checkUser(String username, String password) {
